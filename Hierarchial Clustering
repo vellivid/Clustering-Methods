@@ -1,0 +1,71 @@
+library("dplyr")
+library("ggplot2")
+setwd("/Users/vidishasuman/Desktop/data folder")
+data=read.csv('jpm_cluster.csv', stringsAsFactors=F)
+
+###Naming the columns and labeling the data
+names(data)=c('id','performance','fees_commissions','depth_of_products','ability_resolve_problems','online_services','choice_of_providers','quality_of_advice','knowledge_of_reps','rep_knowing_your_needs','professional_services','provider_knows_me','quality_of_service','age','marital_status','education')
+
+data$age=factor(data$age, labels =c('27-57','58-68','69-75','75+'))
+data$marital_status=factor(data$marital_status,labels=c('married','not married'))
+data$education = factor(data$education,labels=c('no college','some college','college graduate','some graduate school','masters degree','doctorate'))
+
+###Subset needs-based variables
+
+data_cluster=data[,2:13]
+head(data_cluster)
+
+####Impute missing data
+install.packages("mice")
+library(mice)
+set.seed(617)
+data_cluster=mice::complete(mice(data_cluster))
+head(data_cluster)
+
+###For distance-based clustering methods, scale of the variable (e.g., seconds vs minutes) affects the weight assigned to the variable. Therefore, it is best to standardize variables.
+data_cluster=scale(data_cluster)
+head(data_cluster)
+
+###Hierarchical Cluster Analysis
+d=dist(x=data_cluster,method='euclidean')
+#Let us conduct hierarchical clustering using Ward’s method.
+clusters=hclust(d=d,method='ward.D2')
+plot(clusters)
+
+##Goodness of fit. Before moving on to deciphering the dendrogram, it is useful to look at the Cophenetic correlation coefficient. Cophenetic correlation coefficient (CPC) is a goodness of fit statistic for hierarchical clustering which assesses how well a dendrogram matches the true distance metric. It is interpreted similar to a correlation coefficient. CPC> 0.7 indicates relatively strong fit, 0.3<CPC<0.7 indicates moderate fit.
+
+cor(cophenetic(clusters),d)
+
+#Number of clusters
+
+plot(cut(as.dendrogram(clusters),h=5)$upper)
+
+##rectangles around 2,3,4 clusters solution
+plot(clusters)
+rect.hclust(tree=clusters,k=2,border='tomato')
+rect.hclust(tree=clusters,k=3,border='tomato')
+rect.hclust(tree=clusters,k=4,border='tomato')
+
+###Using Dendextend library for highlighting clusters 
+library("dendextend")
+plot(color_branches(as.dendrogram(clusters),k=2,groupLabels=F))
+plot(color_branches(as.dendrogram(clusters),k=4,groupLabels=F))
+###Another useful library for visualizing a dendrogram is the fviz_dend from library(factoextra). Highlight two clusters.
+
+library(factoextra)
+fviz_dend(x = clusters,k=2)
+fviz_dend(x=clusters, k=4)
+
+##Arranging Cluster dendrograms in a grid 
+
+library(gridExtra)
+grid.arrange(fviz_dend(x=clusters, k=2), fviz_dend(x=clusters, k=3), fviz_dend(x=clusters,k=4))
+
+###Selecting number of clusters. A four-cluster solution seems to be best. Most of the respondents seem to be clustering into three groups with the fourth cluster containing a very small number of respondents. For a financial services company, three major segments and one niche segment is a reasonable number of segments to cater to. Based on these considerations, we cut the data into four clusters.
+
+h_segments = cutree(tree=clusters,k=4)
+table(h_segments)
+
+###Visuallize
+library(cluster)
+clusplot(data_cluster,h_segments,color=T,labels=4,main='Hierarchial Cluster Plot')
